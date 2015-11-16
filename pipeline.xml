@@ -1,0 +1,66 @@
+﻿<pipeline>
+  <step name="FindAllStateLinks">
+    <id>1</id>
+    <inputTextFile>FindAllStateLinksInput.txt</inputTextFile>
+    <outputTextFile>AllStateLinks.txt</outputTextFile>
+    <elements>
+      <element>
+        <columnName>StateLink</columnName>
+        <locator>//a[@class='text-muted']</locator>
+        <locatorType>xpath</locatorType>
+        <valueIndicator>Attribute:href</valueIndicator>
+      </element>
+    </elements>
+    <manyPage>false</manyPage>
+    <ignore>false</ignore>
+    <pageUrl></pageUrl>
+  </step>
+  <step name="FindAllCitiesLinks">
+    <id>2</id>
+    <inputTextFile>AllStateLinks.txt</inputTextFile>
+    <outputTextFile>AllCitiesLinks.txt</outputTextFile>
+    <elements>
+      <element>
+        <columnName>CityLink</columnName>
+        <locator>//ul[@class='list-unstyled']/li/a</locator>
+        <locatorType>xpath</locatorType>
+        <valueIndicator>Attribute:href</valueIndicator>
+      </element>
+    </elements>
+    <manyPage>false</manyPage>
+    <ignore>false</ignore>
+    <pageUrl></pageUrl>
+  </step>
+  <step name="FindAllProfiles">
+    <id>3</id>
+    <inputTextFile>AllCitiesLinks.txt</inputTextFile>
+    <outputTextFile>AllProfiles.txt</outputTextFile>
+    <elements>
+      <element>
+        <columnName>ProfileLink</columnName>
+        <locator>//a[@class='sitter-link js-profile-link']</locator>
+        <locatorType>xpath</locatorType>
+        <valueIndicator>Attribute:href</valueIndicator>
+      </element>
+    </elements>
+    <manyPage>true</manyPage>
+    <pageUrl>ProfileListPageUrlTemplate.txt</pageUrl>
+    <ignore>true</ignore>
+  </step>
+  <step name="CollectData">
+    <id>4</id>
+    <inputTextFile>AllProfiles.txt</inputTextFile>
+    <outputTextFile>AllData.txt</outputTextFile>
+    <elements>
+      <element>
+        <columnName>Name</columnName>
+        <locator>//span[@itemprop='name']</locator>
+        <locatorType>xpath</locatorType>
+        <valueIndicator>InnerText</valueIndicator>
+      </element>
+    </elements>
+    <manyPage>false</manyPage>
+    <pageUrl></pageUrl>
+    <ignore>true</ignore>
+  </step>
+</pipeline>
