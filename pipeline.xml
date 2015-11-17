@@ -1,8 +1,8 @@
 ﻿<pipeline>
   <step name="FindAllStateLinks">
     <id>1</id>
-    <inputTextFile>FindAllStateLinksInput.txt</inputTextFile>
-    <outputTextFile>AllStateLinks.txt</outputTextFile>
+    <inputTextFile>FindAllStateLinksInput</inputTextFile>
+    <outputTextFile>AllStateLinks</outputTextFile>
     <elements>
       <element>
         <columnName>StateLink</columnName>
@@ -12,13 +12,13 @@
       </element>
     </elements>
     <manyPage>false</manyPage>
-    <ignore>false</ignore>
+    <ignore>true</ignore>
     <pageUrl></pageUrl>
   </step>
   <step name="FindAllCitiesLinks">
     <id>2</id>
-    <inputTextFile>AllStateLinks.txt</inputTextFile>
-    <outputTextFile>AllCitiesLinks.txt</outputTextFile>
+    <inputTextFile>AllStateLinks</inputTextFile>
+    <outputTextFile>AllCitiesLinks</outputTextFile>
     <elements>
       <element>
         <columnName>CityLink</columnName>
@@ -28,13 +28,13 @@
       </element>
     </elements>
     <manyPage>false</manyPage>
-    <ignore>false</ignore>
+    <ignore>true</ignore>
     <pageUrl></pageUrl>
   </step>
   <step name="FindAllProfiles">
     <id>3</id>
-    <inputTextFile>AllCitiesLinks.txt</inputTextFile>
-    <outputTextFile>AllProfiles.txt</outputTextFile>
+    <inputTextFile>AllCitiesLinks</inputTextFile>
+    <outputTextFile>AllProfiles</outputTextFile>
     <elements>
       <element>
         <columnName>ProfileLink</columnName>
@@ -44,17 +44,29 @@
       </element>
     </elements>
     <manyPage>true</manyPage>
-    <pageUrl>ProfileListPageUrlTemplate.txt</pageUrl>
-    <ignore>true</ignore>
+    <pageUrl>ProfileListPageUrlTemplate</pageUrl>
+    <ignore>false</ignore>
   </step>
   <step name="CollectData">
     <id>4</id>
-    <inputTextFile>AllProfiles.txt</inputTextFile>
-    <outputTextFile>AllData.txt</outputTextFile>
+    <inputTextFile>AllProfiles</inputTextFile>
+    <outputTextFile>AllData</outputTextFile>
     <elements>
       <element>
         <columnName>Name</columnName>
         <locator>//span[@itemprop='name']</locator>
+        <locatorType>xpath</locatorType>
+        <valueIndicator>InnerText</valueIndicator>
+      </element>
+      <element>
+        <columnName>Address</columnName>
+        <locator>//div[@class='provider-neighborhood']</locator>
+        <locator>xpath</locator>
+        <valueIndicator>InnerText</valueIndicator>
+      </element>
+      <element>
+        <columnName>Reviews</columnName>
+        <locator>//a[@class='#reviews']</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>InnerText</valueIndicator>
       </element>

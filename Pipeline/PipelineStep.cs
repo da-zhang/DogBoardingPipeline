@@ -6,16 +6,22 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.IO;
 using HtmlAgilityPack;
+using DogBoardingPipeLine.EventHandlers;
 
 namespace DogBoardingPipeLine.Pipeline
 {
     public class PipelineStep
     {
+        public event StepHandler StepComplete = null;
+        public event StepHandler StepStart = null;
+        public event StepHandler StepError = null;
+        public event StepHandler PageComplete = null;
+
         private int stepIndex = -1;
         private string stepName = null;
         private dynamic stepInput = null;
         private string stepInputFile = null;
-        private List<string> stepOutput = null;
+        private Dictionary<string, List<string>> stepOutput = null;
         private string stepStorageFile = null;
         private List<Element> elementList = null;
         private bool manyPage = false;
@@ -40,7 +46,7 @@ namespace DogBoardingPipeLine.Pipeline
             set { this.stepInput = value; }
         }
 
-        public List<string> StepOutput
+        public Dictionary<string, List<string>> StepOutput
         {
             get { return this.stepOutput; }
             set { this.stepOutput = value; }
@@ -74,7 +80,7 @@ namespace DogBoardingPipeLine.Pipeline
         {
             this.stepIndex = 0;
             this.stepName = string.Empty;
-            this.stepOutput = new List<string>();
+            this.stepOutput = new Dictionary<string, List<string>>();
             this.stepInput = string.Empty;
             this.stepInputFile = string.Empty;
             this.elementList = new List<Element>();
@@ -83,46 +89,168 @@ namespace DogBoardingPipeLine.Pipeline
 
         public bool Run(ref string errorMsg)
         {
+            if (this.StepStart != null)
+            {
+                StepEventArgs e = new StepEventArgs();
+                e.StepMsg = string.Format("Step {0} started at {1}.", this.stepName, DateTime.Now.ToString());
+                this.StepStart(this, e);
+            }
+
             this.stepInput = File.ReadAllLines(this.StepInputFile);
             HtmlWeb web = new HtmlWeb();
 
             foreach (string input in this.stepInput)
             {
-                if (input.StartsWith("C-") && input.EndsWith("-C"))
-                {
-                    continue;
-                }
-
-                HtmlDocument doc = web.Load(input);
-
-                foreach (Element e in this.elementList)
-                {
-                    try
-                    {
-                        e.Execute(doc, ref errorMsg);
-                        this.stepOutput.Add(string.Format("C-{0}-C", e.ColumnName));
-                        this.stepOutput.AddRange(e.Values);
-                        e.Values.Clear();
-                    }
-                    catch (Exception ex)
-                    {
-                        errorMsg = ex.ToString();
-                        return false;
-                    }
-                }
+                this.GoThroughPages(input);
             }
 
-            File.WriteAllLines(this.stepStorageFile, this.stepOutput);
+            this.MergeStepOutput();
+
+            if (this.StepComplete != null)
+            {
+                StepEventArgs e = new StepEventArgs();
+                e.StepMsg = string.Format("Step {0} succeed at {1}.", this.stepName, DateTime.Now.ToString());
+                this.StepComplete(this, e);
+            }
 
             return true;
         }
 
-        private void GoThroughPages()
+        private void SaveStepOutput()
         {
-            if(this.manyPage)
-            {
+            string outputFile = string.Empty;
 
+            foreach (string key in this.stepOutput.Keys)
+            {
+                outputFile = string.Format("{0}-{1}", this.StepStorageFile, key);
+                File.WriteAllLines(outputFile, this.stepOutput[key].Distinct());
             }
+        }
+
+        private void MergeStepOutput()
+        {
+            List<string> finalList = new List<string>();
+            string prefix = string.Format("{0}-", this.StepStorageFile);
+
+            List<string> tempFiles = Directory.GetFiles(Environment.CurrentDirectory).Where(f => Path.GetFileName(f).StartsWith(prefix)).ToList();
+
+            if (tempFiles.Count > 1)
+            {
+                List<string[]> contents = new List<string[]>();
+
+                foreach (string file in tempFiles)
+                {
+                    contents.Add(File.ReadAllLines(file));
+                }
+
+                int arrayLength = contents.First().Length;
+
+                if (contents.All(c => c.Length == arrayLength))
+                {
+                    for (int i = 0; i < arrayLength; i++)
+                    {
+                        StringBuilder finalLineBuilder = new StringBuilder();
+
+                        foreach (string[] columnArray in contents)
+                        {
+                            finalLineBuilder.AppendFormat("\"{0}\",", columnArray[i]);
+                        }
+
+                        finalList.Add(finalLineBuilder.ToString());
+                    }
+                }
+
+                File.WriteAllLines(this.stepStorageFile, finalList);
+                tempFiles.ForEach(t => File.Delete(t));
+            }
+            else
+            {
+                if (File.Exists(this.stepStorageFile))
+                {
+                    File.Delete(this.stepStorageFile);
+                }
+
+                File.Move(tempFiles[0], this.stepStorageFile);
+            }
+        }
+
+        private void GoThroughPages(string baseUrl)
+        {
+            HtmlWeb web = new HtmlWeb();
+            HtmlDocument doc = null;
+            string errorMsg = string.Empty;
+
+            if (this.manyPage)
+            {
+                int startPage = 1;
+
+                while (true)
+                {
+                    string currentPage = startPage == 1 ? baseUrl : string.Format(this.pageTemplate, baseUrl, startPage);
+                    doc = web.Load(currentPage);
+                    bool pageScraped = this.ExecuteScrapeOnDocument(doc, startPage, ref errorMsg);
+
+                    if (pageScraped && this.PageComplete != null)
+                    {
+                        StepEventArgs args = new StepEventArgs();
+                        args.StepMsg = string.Format("Page {0} of URL {1} complete, current step: {2}.", startPage, baseUrl, this.stepName);
+                        this.PageComplete(this, args);
+                    }
+
+                    if (errorMsg == "Reached last page!")
+                    {
+                        break;
+                    }
+
+                    startPage++;
+                }
+            }
+            else
+            {
+                doc = web.Load(baseUrl);
+                this.ExecuteScrapeOnDocument(doc, 1, ref errorMsg);
+            }
+        }
+
+        private bool ExecuteScrapeOnDocument(HtmlDocument doc, int pageIndex, ref string errorMsg)
+        {
+            foreach (Element e in this.elementList)
+            {
+                try
+                {
+                    bool succeed = e.Execute(doc, this.manyPage, ref errorMsg);
+
+                    if ((!succeed && this.manyPage) || e.Values.Count < 20 || (pageIndex > 1 && e.Values.Count < 60))
+                    {
+                        errorMsg = "Reached last page!";
+                        return true;
+                    }
+
+                    if (this.stepOutput.ContainsKey(e.ColumnName) == false)
+                    {
+                        this.stepOutput.Add(e.ColumnName, new List<string>());
+                    }
+
+                    this.stepOutput[e.ColumnName].AddRange(e.Values);
+                    e.Values.Clear();
+
+                    this.SaveStepOutput();
+                }
+                catch (Exception ex)
+                {
+                    if (this.StepError != null)
+                    {
+                        StepEventArgs arg = new StepEventArgs();
+                        arg.StepMsg = string.Format("Step {0} encountered error: {1}.", this.stepName, ex.ToString());
+                        this.StepError(this, arg);
+                    }
+
+                    errorMsg = ex.ToString();
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public static PipelineStep FromXml(XElement stepData)
@@ -143,7 +271,7 @@ namespace DogBoardingPipeLine.Pipeline
             string ignore = stepData.Element("ignore").Value;
             step.ignore = bool.Parse(ignore);
             string pageTemplate = stepData.Element("pageUrl").Value;
-            step.pageTemplate = pageTemplate.EndsWith(".txt") ? File.ReadAllText(pageTemplate) : pageTemplate;
+            step.pageTemplate = (string.IsNullOrEmpty(pageTemplate) || pageTemplate.StartsWith("http")) ? pageTemplate : File.ReadAllText(pageTemplate);
 
             return step;
         }

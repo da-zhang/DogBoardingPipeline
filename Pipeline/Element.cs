@@ -69,7 +69,7 @@ namespace DogBoardingPipeLine.Pipeline
             this.values = new List<string>();
         }
 
-        public bool Execute(HtmlDocument doc, ref string errorMsg)
+        public bool Execute(HtmlDocument doc, bool failOnEmpty,ref string errorMsg)
         {
             try
             {
@@ -87,7 +87,7 @@ namespace DogBoardingPipeLine.Pipeline
                 if(targetList == null)
                 {
                     errorMsg = "No results.";
-                    return true;
+                    return failOnEmpty ? false : true;
                 }
 
                 foreach(HtmlNode target in targetList)
@@ -115,13 +115,15 @@ namespace DogBoardingPipeLine.Pipeline
                             if(!oneValue.StartsWith("http"))
                             {
                                 string homeUrl = ConfigurationManager.AppSettings["homeUrl"];
-                                oneValue = string.Format("{0}/{1}", homeUrl, oneValue.Trim('/'));
+                                oneValue = string.Format("{0}/{1}", homeUrl, oneValue.Trim('/').Split('?')[0]);
                             }
                         }
                     }
 
                     this.values.Add(oneValue);
                 }
+
+                this.values = this.values.Distinct().ToList();
             }
             catch (Exception ex)
             {

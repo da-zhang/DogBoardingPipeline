@@ -47,6 +47,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EventHandlers\ElementHanlders.cs" />
+    <Compile Include="EventHandlers\PipelineHandlers.cs" />
+    <Compile Include="EventHandlers\StepEventArgs.cs" />
+    <Compile Include="EventHandlers\StepHandlers.cs" />
     <Compile Include="Pipeline\Element.cs" />
     <Compile Include="Pipeline\PipelineStep.cs" />
     <Compile Include="Pipeline\RoverPipeline.cs" />

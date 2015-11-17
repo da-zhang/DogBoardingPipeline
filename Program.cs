@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Configuration;
 using DogBoardingPipeLine.Pipeline;
+using HtmlAgilityPack;
 
 namespace DogBoardingPipeLine
 {

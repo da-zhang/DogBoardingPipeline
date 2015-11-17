@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using DogBoardingPipeLine.EventHandlers;
 
 namespace DogBoardingPipeLine.Pipeline
 {
@@ -37,6 +38,32 @@ namespace DogBoardingPipeLine.Pipeline
             foreach(XElement stepsElement in stepsElements)
             {
                 PipelineStep step = PipelineStep.FromXml(stepsElement);
+
+                step.StepStart += (sender, e) =>
+                    {
+                        Console.WriteLine(e.StepMsg);
+                    };
+
+                step.StepComplete += (sender, e) =>
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine(e.StepMsg);
+                        Console.ResetColor();
+                    };
+                step.StepError += (sender, e) =>
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(e.StepMsg);
+                        Console.ResetColor();
+                    };
+
+                step.PageComplete += (sender, e) =>
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine(e.StepMsg);
+                        Console.ResetColor();
+                    };
+
                 pipeline.steps.Add(step);
             }
 
