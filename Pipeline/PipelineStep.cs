@@ -116,14 +116,22 @@ namespace DogBoardingPipeLine.Pipeline
             return true;
         }
 
-        private void SaveStepOutput()
+        private void SaveStepOutput(bool removeDuplicates)
         {
             string outputFile = string.Empty;
 
             foreach (string key in this.stepOutput.Keys)
             {
                 outputFile = string.Format("{0}-{1}", this.StepStorageFile, key);
-                File.WriteAllLines(outputFile, this.stepOutput[key].Distinct());
+                
+                if (removeDuplicates)
+                {
+                    File.WriteAllLines(outputFile, this.stepOutput[key].Distinct());
+                }
+                else
+                {
+                    File.WriteAllLines(outputFile, this.stepOutput[key]);
+                }
             }
         }
 
@@ -220,12 +228,6 @@ namespace DogBoardingPipeLine.Pipeline
                 {
                     bool succeed = e.Execute(doc, this.manyPage, ref errorMsg);
 
-                    if ((!succeed && this.manyPage) || e.Values.Count < 20 || (pageIndex > 1 && e.Values.Count < 60))
-                    {
-                        errorMsg = "Reached last page!";
-                        return true;
-                    }
-
                     if (this.stepOutput.ContainsKey(e.ColumnName) == false)
                     {
                         this.stepOutput.Add(e.ColumnName, new List<string>());
@@ -234,7 +236,13 @@ namespace DogBoardingPipeLine.Pipeline
                     this.stepOutput[e.ColumnName].AddRange(e.Values);
                     e.Values.Clear();
 
-                    this.SaveStepOutput();
+                    this.SaveStepOutput(e.Single);
+
+                    if ((!succeed && this.manyPage) || e.Values.Count < 20 || (pageIndex > 1 && e.Values.Count < 60))
+                    {
+                        errorMsg = "Reached last page!";
+                        //return true;
+                    }
                 }
                 catch (Exception ex)
                 {

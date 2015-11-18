@@ -21,6 +21,7 @@ namespace DogBoardingPipeLine.Pipeline
         private string locatorType = null;
         private string valueIndicator = null;
         private string columnName = null;
+        private bool single = false;
 
         public List<string> Values
         {
@@ -45,19 +46,26 @@ namespace DogBoardingPipeLine.Pipeline
             set { this.columnName = value; }
         }
 
-        private string ValueIndicator
+        public string ValueIndicator
         {
             get { return this.valueIndicator; }
             set { this.valueIndicator = value; }
         }
 
-        public Element(string locator, string locatorType, string columnName, string valueIndicator)
+        public bool Single
+        {
+            get { return this.single; }
+            set { this.single = value; }
+        }
+
+        public Element(string locator, string locatorType, string columnName, string valueIndicator, bool single)
         {
             this.columnName = columnName;
             this.locator = locator;
             this.locatorType = locatorType;
             this.valueIndicator = valueIndicator;
             this.values = new List<string>();
+            this.single = single;
         }
 
         public Element(XElement elementProfile)
@@ -66,56 +74,85 @@ namespace DogBoardingPipeLine.Pipeline
             this.locator = elementProfile.Element("locator").Value;
             this.locatorType = elementProfile.Element("locatorType").Value;
             this.valueIndicator = elementProfile.Element("valueIndicator").Value;
+            this.single = bool.Parse(elementProfile.Element("single").Value);
             this.values = new List<string>();
         }
 
-        public bool Execute(HtmlDocument doc, bool failOnEmpty,ref string errorMsg)
+        public bool Execute(HtmlDocument doc, bool failOnEmpty, ref string errorMsg)
         {
             try
             {
-                List<HtmlNode> targetList = null;
-                
-                if(this.locatorType == "xpath")
+                HtmlNodeCollection targetList = null;
+
+                if (this.locatorType == "xpath")
                 {
-                    targetList = doc.DocumentNode.SelectNodes(this.locator).ToList();
+                    targetList = doc.DocumentNode.SelectNodes(this.locator);
                 }
-                else if(this.locatorType == "id")
+                else if (this.locatorType == "id")
                 {
                     targetList.Add(doc.GetElementbyId(this.locator));
                 }
+                else
+                {
+                    if (this.locatorType.StartsWith("children"))
+                    {
+                        targetList = doc.DocumentNode.SelectNodes(this.locator);
+                    }
+                }
 
-                if(targetList == null)
+                if (targetList == null)
                 {
                     errorMsg = "No results.";
                     return failOnEmpty ? false : true;
                 }
 
-                foreach(HtmlNode target in targetList)
+                foreach (HtmlNode target in targetList)
                 {
-                    string[] valueIndicator = this.valueIndicator.Split(':');
                     string oneValue = null;
+                    string[] indicators = this.valueIndicator.Split(':');
 
-                    if(valueIndicator.Length == 1)
+                    if (this.locatorType.Contains(":"))
                     {
-                        if (valueIndicator[0].ToUpper() == "INNERTEXT")
+                        string childrenLocator = this.locatorType.Split(':')[1];
+                        string tagName = childrenLocator.Split(new string[] { "***" }, StringSplitOptions.RemoveEmptyEntries)[0];
+                        string attributeName = childrenLocator.Split(new string[] { "***" }, StringSplitOptions.RemoveEmptyEntries)[1];
+                        string attributeValue = childrenLocator.Split(new string[] { "***" }, StringSplitOptions.RemoveEmptyEntries)[2];
+                        IEnumerable<HtmlNode> children = target.Descendants(tagName).Where(item => item.Attributes.Contains(attributeName) && item.Attributes[attributeName].Value == attributeValue);
+                        StringBuilder valueBuilder = new StringBuilder();
+
+                        foreach (HtmlNode child in children)
                         {
-                            oneValue = target.InnerText;
+                            string oneCell = child.Attributes[indicators[1]].Value;
+                            valueBuilder.AppendFormat("{0};", oneCell);
                         }
-                        else if (valueIndicator[0].ToUpper() == "INNERHTML")
-                        {
-                            oneValue = target.InnerHtml;
-                        }
+
+                        oneValue = valueBuilder.ToString().Trim(';');
+                        oneValue = string.IsNullOrEmpty(oneValue) ? "No Badges" : oneValue;
                     }
                     else
                     {
-                        oneValue = target.Attributes[valueIndicator[1]].Value;
-
-                        if(valueIndicator[1] == "href")
+                        if (indicators.Length == 1)
                         {
-                            if(!oneValue.StartsWith("http"))
+                            if (indicators[0].ToUpper() == "INNERTEXT")
                             {
-                                string homeUrl = ConfigurationManager.AppSettings["homeUrl"];
-                                oneValue = string.Format("{0}/{1}", homeUrl, oneValue.Trim('/').Split('?')[0]);
+                                oneValue = target.InnerText;
+                            }
+                            else if (indicators[0].ToUpper() == "INNERHTML")
+                            {
+                                oneValue = target.InnerHtml;
+                            }
+                        }
+                        else
+                        {
+                            oneValue = target.Attributes[indicators[1]].Value;
+
+                            if (indicators[1] == "href")
+                            {
+                                if (!oneValue.StartsWith("http"))
+                                {
+                                    string homeUrl = ConfigurationManager.AppSettings["homeUrl"];
+                                    oneValue = string.Format("{0}/{1}", homeUrl, oneValue.Trim('/').Split('?')[0]);
+                                }
                             }
                         }
                     }
@@ -123,11 +160,13 @@ namespace DogBoardingPipeLine.Pipeline
                     this.values.Add(oneValue);
                 }
 
-                this.values = this.values.Distinct().ToList();
+                this.values = this.single ? this.values.Distinct().ToList() : this.values;
             }
             catch (Exception ex)
             {
-                errorMsg = ex.ToString();
+                throw ex;
+                //errorMsg = ex.ToString();
+                //return false;
             }
 
             return true;

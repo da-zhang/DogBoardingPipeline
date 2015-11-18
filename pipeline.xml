@@ -9,6 +9,7 @@
         <locator>//a[@class='text-muted']</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>Attribute:href</valueIndicator>
+        <single>true</single>
       </element>
     </elements>
     <manyPage>false</manyPage>
@@ -25,6 +26,7 @@
         <locator>//ul[@class='list-unstyled']/li/a</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>Attribute:href</valueIndicator>
+        <single>true</single>
       </element>
     </elements>
     <manyPage>false</manyPage>
@@ -41,6 +43,14 @@
         <locator>//a[@class='sitter-link js-profile-link']</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>Attribute:href</valueIndicator>
+        <single>true</single>
+      </element>
+      <element>
+        <columnName>Badges</columnName>
+        <locator>//span[@class='sitter-card-title h3 nomargin no-profile-click-thru']</locator>
+        <locatorType>children:span***class***sitter-earned-badges js-badge-popover badge-popover</locatorType>
+        <valueIndicator>Attribute:title</valueIndicator>
+        <single>false</single>
       </element>
     </elements>
     <manyPage>true</manyPage>
@@ -57,18 +67,21 @@
         <locator>//span[@itemprop='name']</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>InnerText</valueIndicator>
+        <single>true</single>
       </element>
       <element>
         <columnName>Address</columnName>
         <locator>//div[@class='provider-neighborhood']</locator>
-        <locator>xpath</locator>
+        <locatorType>xpath</locatorType>
         <valueIndicator>InnerText</valueIndicator>
+        <single>true</single>
       </element>
       <element>
         <columnName>Reviews</columnName>
         <locator>//a[@class='#reviews']</locator>
         <locatorType>xpath</locatorType>
         <valueIndicator>InnerText</valueIndicator>
+        <single>true</single>
       </element>
     </elements>
     <manyPage>false</manyPage>
